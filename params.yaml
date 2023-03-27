@@ -1,0 +1,17 @@
+efficientnet:
+  model_name: "efficientnet-b3"
+  val_split: 0.15
+  learning_rate: 0.001 # 1e-3 # 1e-4
+  batch_size: 3
+  max_epochs: 100
+  early_stopping_patience: 3
+  normalize:
+    rgb_means: [0.5, 0.5, 0.5]
+    rgb_stds: [0.5, 0.5, 0.5]
+    max_pixel_value: 255
+  transforms:
+    height: 1024
+    width: 1024
+    blur: 0.3
+    horizontal_flip: 0.5
+    vertical_flip: 0.5
