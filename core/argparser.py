@@ -1,6 +1,6 @@
 """Argument paser for project"""
 import argparse
-from core import efficientnet
+from core import data_downloader
 
 from pathlib import Path
 
@@ -39,8 +39,8 @@ def parse_project_args():
                                help="Folder containing project logs.")
 
     subparsers = parent_parser.add_subparsers(dest="command", required=True)
-
-    efficientnet.setup_args(subparsers)
+    subparsers = data_downloader.setup_args(subparsers)
+    subparsers.add_parser("efficientnet")
 
     main_parser = argparse.ArgumentParser(parents=[parent_parser])
 

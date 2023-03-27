@@ -1,7 +1,7 @@
 """Zindi Africa palm tree counting competition."""
-from core import argparser, efficientnet
 import sys
 
+from core import argparser, data_downloader, efficientnet
 from core.logs import ProjectLogger
 
 logger = ProjectLogger(__name__)
@@ -13,6 +13,7 @@ if __name__ == '__main__':
     kwargs = vars(parsed_args)
 
     command_map = {
+        "data_downloader": data_downloader.main,
         "efficientnet": efficientnet.main,
     }
 
