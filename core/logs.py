@@ -49,7 +49,7 @@ class ProjectLogger:
             self.log_file = Path(log_dir, log_filename).absolute()
 
             file_handler = FileHandler(self.log_file)
-            file_handler.setLevel(logging.INFO)
+            file_handler.setLevel(logging.ERROR)
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
 
