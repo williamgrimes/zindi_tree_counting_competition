@@ -13,7 +13,7 @@ if __name__ == '__main__':
         "efficientnet": efficientnet.main,
     }
 
-    logger.setup_info(kwargs)
+    logger.setup_info(kwargs, exclude_list=["auth_token"])
 
     command_map.get(parsed_args.command)(kwargs)
 

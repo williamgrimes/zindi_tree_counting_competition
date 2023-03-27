@@ -5,7 +5,7 @@ import sys
 from datetime import datetime
 from logging import FileHandler, StreamHandler
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List
 
 
 def debugger_is_active() -> bool:
@@ -73,7 +73,7 @@ class ProjectLogger:
         """Critical log."""
         self.logger.critical(message)
 
-    def setup_info(self, kwargs: Dict) -> None:
+    def setup_info(self, kwargs: Dict, exclude_list: List = []) -> None:
         """Log setup information."""
         if self.active_debugger:
             self.i(f"Initialising logger in debug mode.")
@@ -83,4 +83,5 @@ class ProjectLogger:
             self.i(f"Handler {number}: {handler}")
         self.i(f"Executing with arguments:")
         for k, v in kwargs.items():
-            self.i(f"--- Argument: {k} - {v}")
+            if k not in exclude_list:
+                self.i(f"--- Argument: {k} - {v}")
