@@ -72,11 +72,11 @@ def check_file_exists(file_path: str):
 def device_memory_usage(device):
     """Function to check if file exists."""
     if device.type == "cuda" :
-        mem_string = f"GPU memory: {torch.cuda.memory_allocated() / 2 ** 30:.2f} GB / " \
-        f"{torch.cuda.max_memory_allocated() / 2 ** 30:.2f} GB (max)"
+        mem_string = f"GPU memory: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} GB / " \
+        f"{torch.cuda.max_memory_allocated() / 1024 ** 3:.2f} GB (max)"
     else:
         mem = psutil.virtual_memory()
-        mem_string = f"CPU memory: {mem.used / 2 ** 30:.2f} GB / " \
-        f"{mem.total / 2 ** 30:.2f} GB (total)"
+        mem_string = f"CPU memory: {mem.used / 1024 ** 3:.2f} GB / " \
+        f"{mem.total  / 1024 ** 3:.2f} GB (total)"
     return mem_string
 
