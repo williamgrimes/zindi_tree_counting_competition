@@ -31,6 +31,7 @@ class ProjectLogger:
         self.active_debugger = debugger_is_active()
         self.now = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.log_dir = log_dir
+        self.log_file = None
 
         self.logger.setLevel(logging.DEBUG)
 
@@ -49,7 +50,7 @@ class ProjectLogger:
             self.log_file = Path(log_dir, log_filename).absolute()
 
             file_handler = FileHandler(self.log_file)
-            file_handler.setLevel(logging.ERROR)
+            file_handler.setLevel(logging.INFO)
             file_handler.setFormatter(formatter)
             self.logger.addHandler(file_handler)
 
