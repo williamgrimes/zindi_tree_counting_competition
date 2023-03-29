@@ -1,6 +1,6 @@
 """Argument paser for project"""
 import argparse
-from core import data_downloader
+from core import data_downloader, data_normalizer, efficientnet
 
 from pathlib import Path
 
@@ -46,10 +46,15 @@ def parse_project_args():
                                default="logs",
                                type=str,
                                help="Folder containing project logs.")
+    parent_parser.add_argument("--runs_dir",
+                               default="runs",
+                               type=str,
+                               help="Folder containing training run experiments.")
 
     subparsers = parent_parser.add_subparsers(dest="command", required=True)
-    subparsers = data_downloader.setup_args(subparsers)
-    subparsers.add_parser("efficientnet")
+    data_downloader.setup_args(subparsers)
+    data_normalizer.setup_args(subparsers)
+    efficientnet.setup_args(subparsers)
 
     main_parser = argparse.ArgumentParser(parents=[parent_parser])
 

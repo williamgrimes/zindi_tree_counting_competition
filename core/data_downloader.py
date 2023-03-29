@@ -33,7 +33,7 @@ def setup_args(subparsers):
         "--auth_token",
         required=True,
         help="Required token to access data.")
-    return subparsers
+    return None
 
 
 def zindi_data_downloader(
