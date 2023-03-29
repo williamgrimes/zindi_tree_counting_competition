@@ -24,6 +24,11 @@ def csv_read(csv_file, sep=','):
     logger.i(f"Read {csv_file} with {len(df)} rows, columns {list(df.columns)}.")
     return df
 
+def csv_write(df, csv_file, sep=',', index=True):
+    df.to_csv(csv_file, sep=sep, index=index)
+    logger.i(f"Writing {csv_file} with {len(df)} rows, columns {list(df.columns)}.")
+    return None
+
 def train_val_split(df, val_split, seed):
     df_train, df_val = train_test_split(df, test_size=val_split, random_state=seed)
     logger.i(f"Split {len(df)} rows, to train {len(df_train)}, rows and "
