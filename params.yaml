@@ -6,8 +6,8 @@ efficientnet:
   max_epochs: 20
   early_stopping_patience: 3
   normalize:
-    rgb_means: [0.29251013, 0.35511252, 0.24754053]
-    rgb_stds: [0.12808342, 0.12873866, 0.10857158]
+    rgb_means: [0.41210787, 0.50030631, 0.34875169]
+    rgb_stds: [0.15202952, 0.15280726, 0.1288698]
   transforms:
     height: 1024
     width: 1024
