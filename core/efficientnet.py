@@ -227,11 +227,15 @@ def inference(dataloaders, model, df_test, device):
 
 
 def main(kwargs):
+    start_time = time.time()
     params = get_params(kwargs)
     device = check_device()
 
-    run_name = Path(kwargs["runs_dir"], f"{logger.now}_{params['model_name']}")
-    logger.d(f"{run_name=}")
+    #empty_images = check_empty_images(kwargs["train_images"])
+
+    run_name = f"{logger.now}_{params['model_name']}"
+    run_dir = Path(kwargs["runs_dir"], f"{run_name}")
+    logger.d(f"{run_dir=}")
 
     df = csv_read(kwargs.get("train_csv"))
     df_test = csv_read(kwargs.get("test_csv"))
@@ -270,15 +274,15 @@ def main(kwargs):
             batch_size=params.get("batch_size"),
             shuffle=False)}
 
-    logger.i(f"Creating {run_name} directory.")
-    os.makedirs(run_name)
+    logger.i(f"Creating {run_dir} directory.")
+    os.makedirs(run_dir)
 
-    model_file_path = Path(run_name, f"{run_name.name}_checkpoint.pth.tar")
-    preds_file_path = Path(run_name, f"{run_name.name}_preds.csv")
-    params_file_path = Path(run_name, f"{run_name.name}_params.yaml")
-    logs_file_path = Path(run_name, f"{run_name.name}.log")
+    model_file_path = Path(run_dir, f"{run_name}_checkpoint.pth.tar")
+    preds_file_path = Path(run_dir, f"{run_name}_preds.csv")
+    params_file_path = Path(run_dir, f"{run_name}_params.yaml")
+    logs_file_path = Path(run_dir, f"{run_name}.log")
 
-    model = train(dataloaders, device, params, model_file_path)
+    model, loss = training_loop(dataloaders, device, params, model_file_path)
 
     load_checkpoint(torch.load(model_file_path), model)
 
@@ -286,7 +290,7 @@ def main(kwargs):
 
     csv_write(df_test, preds_file_path, index=False)
 
-    logger.i(f"Copying params {run_name} directory.")
+    logger.i(f"Copying params {run_dir} directory.")
     shutil.copy(kwargs.get("params_file"), params_file_path)
 
     if logger.log_file:
