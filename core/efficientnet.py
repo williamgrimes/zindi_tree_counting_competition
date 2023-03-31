@@ -102,10 +102,6 @@ class TreeImagesDataset(Dataset):
         self.transform = transform
         self.is_inference = is_inference
 
-        for img in self.df.iterrows():
-            if not os.path.exists(Path(self.images_dir, img)):
-                logger.e(f"Image {img} does not exist")
-
     def __len__(self):
         return len(self.df)
 
