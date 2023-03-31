@@ -1,7 +1,9 @@
 """EfficientNet approach"""
 
+import cv2
 import os
 import shutil
+import time
 from pathlib import Path
 
 import torch
@@ -169,14 +171,15 @@ def train_fn(loader, model, opt, loss_fn, device):
             logger.i(f" --- iter: {i} / {len(loader)}")
 
 
-def train(dataloaders, device, params, model_file_path):
+def training_loop(dataloaders, device, params, model_file_path):
     loss_fn = nn.MSELoss().to(device)
     model = Net(params).to(device)
     opt = optim.Adam(model.parameters(), lr=params.get("learning_rate"))
     loss = 999999999
     es = 0
     for epoch in range(params.get("max_epochs")):
-        logger.i(f"Epoch: {epoch}")
+        logger.i(f"")
+        logger.i(f"Epoch {epoch} / {params.get('max_epochs')}: val_loss: {loss}")
 
         train_fn(dataloaders["train"], model, opt, loss_fn, device)
         train_loss = check_acc(dataloaders["train"], model, device)
@@ -194,15 +197,16 @@ def train(dataloaders, device, params, model_file_path):
                 'state_dict': model.state_dict(),
                 'optimizer': opt.state_dict()
             }
-            logger.i(f'Writing checkpoint to {model_file_path}')
+            logger.i(f'Writing checkpoint -> {model_file_path.name}')
             torch.save(checkpoint, model_file_path)  # save checkpoint
 
         else:
             es += 1
 
         if es == params.get("early_stopping_patience"):
+            logger.i(f"Early stopping at epoch {epoch} with best {loss=}")
             break
-    return model
+    return model, loss
 
 
 def inference(dataloaders, model, df_test, device):
