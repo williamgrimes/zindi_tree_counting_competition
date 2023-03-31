@@ -23,9 +23,6 @@ from core.utils import csv_read, train_val_split, check_device, get_params, get_
 logger = ProjectLogger(__name__)
 
 
-# TODO treat empty images where std < 0.1 separately
-# TODO transform empty regions shrink bounding box
-
 def setup_args(subparsers):
     """Argument paser for efficientnet."""
     subparser_data_downloader = subparsers.add_parser("efficientnet")
