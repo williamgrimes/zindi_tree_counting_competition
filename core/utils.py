@@ -2,13 +2,15 @@
 import csv
 import gc
 import os
+import subprocess
+
 import pandas as pd
 import psutil
 import torch
 import yaml
 
 from pathlib import Path
-from typing import Union, List
+from typing import Dict, Union, List
 from sklearn.model_selection import train_test_split
 
 from core.logs import ProjectLogger
@@ -23,15 +25,18 @@ def set_seed(seed):
     torch.cuda.manual_seed_all(seed)
     logger.i(f"Set seed to {seed}, in numpy, torch.")
 
+
 def csv_read(csv_file, sep=','):
     df = pd.read_csv(csv_file, sep=sep)
     logger.i(f"Read {csv_file} with {len(df)} rows, columns {list(df.columns)}.")
     return df
 
+
 def csv_write(df, csv_file, sep=',', index=True):
     df.to_csv(csv_file, sep=sep, index=index)
     logger.i(f"Writing {csv_file} with {len(df)} rows, columns {list(df.columns)}.")
     return None
+
 
 def train_val_split(df, val_split, seed):
     df_train, df_val = train_test_split(df, test_size=val_split, random_state=seed)
@@ -39,17 +44,21 @@ def train_val_split(df, val_split, seed):
              f"validation set {len(df_val)}, columns {list(df.columns)}.")
     return df_train.reset_index(drop=True), df_val.reset_index(drop=True)
 
+
 def check_device():
     if torch.cuda.is_available():
         device = torch.device("cuda")
-        logger.i(f"CUDA memory before flush cache: {device_memory_usage(device)}.")
+        logger.i(f"CUDA memory before flush cache:")
+        logger.i(f"--- memory:  {get_device_mem_used(device)} / {get_device_mem_total(device)} Mb")
         torch.cuda.empty_cache()
         gc.collect()
-        logger.i(f"CUDA memory after flush cache: {device_memory_usage(device)}.")
+        logger.i(f"CUDA memory after flush cache:")
+        logger.i(f"--- memory:  {get_device_mem_used(device)} / {get_device_mem_total(device)} Mb")
     else:
         device = torch.device("cpu")
     logger.i(f"{device.type.upper()} device available.")
     return device
+
 
 def log_dict(d, prefix=''):
     """Explode dicitonary and log outputs"""
@@ -58,6 +67,7 @@ def log_dict(d, prefix=''):
             log_dict(value, f"{prefix}{key} - ")
         else:
             logger.i(f"--- Parameter: {prefix}{key}: {str(value)}")
+
 
 def get_params(kwargs):
     """Load parameters from yaml file."""
@@ -78,15 +88,51 @@ def check_file_exists(file_path: str):
         logger.i(f"{file_path} does not exist.")
         return False
 
+
+def get_device_mem_used(device):
+    if device.type == "cuda":
+        result = subprocess.check_output(
+            ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits', '--format=csv', '--unit=M'],
+            encoding='utf-8')
+        mem_usage = result.strip().split('\n')[1:]
+        mem_usage = sum([int(''.join(x for x in s if x.isdigit())) for s in mem_usage])
+    else:
+        process = psutil.Process()
+        memory_info = process.memory_info()
+        mem_usage = memory_info.rss / 1024 ** 2  # Convert to MB
+    return int(mem_usage)
+
+def get_device_mem_total(device):
+    if device.type == "cuda":
+        result = subprocess.check_output(
+            ['nvidia-smi', '--query-gpu=memory.total', '--format=csv,nounits', '--format=csv', '--unit=M'],
+            encoding='utf-8')
+        mem_total = result.strip().split('\n')[1:]
+        mem_total = sum([int(''.join(x for x in s if x.isdigit())) for s in mem_total])
+    else:
+        mem_total = psutil.virtual_memory()
+        mem_total = psutil.virtual_memory().total / 1024 ** 2
+    return int(mem_total)
+
+
 def device_memory_usage(device):
     """Function to check if file exists."""
-    if device.type == "cuda" :
-        mem_string = f"GPU memory: {torch.cuda.memory_allocated() / 1024 ** 3:.2f} GB / " \
-        f"{torch.cuda.max_memory_allocated() / 1024 ** 3:.2f} GB (max)"
+    if device.type == "cuda":
+        result = subprocess.check_output([
+            'nvidia-smi',
+            '--query-gpu=index,memory.used,memory.total',
+            '--format=csv,nounits',
+            '--format=csv',
+            '--unit=G',
+        ], encoding='utf-8')
+        gpu_memory = result.strip().split('\n')[1:]
+        gpu_memory = [x.split(',') for x in gpu_memory]
+        gpu_memory = {int(x[0]): {'used': x[1], 'total': x[2]} for x in gpu_memory}
+        mem_string = f"GPU memory: {gpu_memory}"
     else:
         mem = psutil.virtual_memory()
         mem_string = f"CPU memory: {mem.used / 1024 ** 3:.2f} GB / " \
-        f"{mem.total  / 1024 ** 3:.2f} GB (total)"
+                     f"{mem.total / 1024 ** 3:.2f} GB (total)"
     return mem_string
 
 

@@ -158,9 +158,10 @@ def train(dataloaders, device, params, model_file_path):
         train_loss = check_acc(dataloaders["train"], model, device)
         val_loss = check_acc(dataloaders["val"], model, device)
 
-        logger.i(f"--- train loss: {train_loss:.2f} "
-                 f"--- val loss: {val_loss:.2f} "
-                 f"--- memory:  {device_memory_usage(device)}")
+        logger.i(f" --- train loss: {train_loss:.2f}")
+        logger.i(f" --- val loss: {val_loss:.2f}")
+        logger.i(f" --- memory:  {get_device_mem_used(device)} / "
+                 f"{get_device_mem_total(device)} Mb")
 
         if val_loss < loss:
             loss = val_loss
