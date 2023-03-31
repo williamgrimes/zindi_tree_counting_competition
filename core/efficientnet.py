@@ -29,6 +29,39 @@ def setup_args(subparsers):
     return None
 
 
+def rescaler(img):
+
+    img = np.array(img)
+
+    H, W = img.shape[0:2]
+
+    if img.max():  # image has data
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)[1]
+
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        largest_contour = max(contours, key=cv2.contourArea)
+
+        epsilon = 0.01 * cv2.arcLength(largest_contour, True)
+        approx = cv2.approxPolyDP(largest_contour, epsilon, True)
+
+        approx = np.reshape(approx, (approx.shape[0], -1)).astype('float32')
+
+        if len(approx) != 4:
+            x, y, w, h = cv2.boundingRect(largest_contour)
+            approx = np.array([[x, y], [x, y + h - 1], [x + w - 1, y + h - 1], [x + w - 1, y]], dtype=np.float32)
+
+        pts_dst = np.array([[0, 0], [0, H - 1], [W - 1, H - 1], [W - 1, 0]], dtype=np.float32)
+
+        M = cv2.getPerspectiveTransform(approx, pts_dst)
+
+        img_warped = cv2.warpPerspective(img, M, (H, W))
+    else:
+        img_warped = img
+
+    return Image.fromarray(img_warped)
+
 def transform_images(params):
     normalizer = transforms.Normalize(
         mean=params["normalize"]["rgb_means"],
