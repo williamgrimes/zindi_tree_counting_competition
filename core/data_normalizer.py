@@ -1,7 +1,10 @@
-"""Zindi data normalizer
-https://zindi.africa/learn/how-to-download-data-files-from-zindi-to-colab
+"""Zindi data normalizer, reads each image in the training set,
+and calculates the mean pixel value and std for each channel,
+ returns the average of the mean and std to be used as image normalisation e.g.
+
+[INFO] Mean: [0.41210787 0.50030631 0.34875169]
+[INFO] Standard deviation: [0.15202952 0.15280726 0.1288698 ]
 """
-from pathlib import Path
 
 import cv2
 import numpy as np
@@ -9,16 +12,18 @@ import pandas as pd
 
 import os
 
-from core.logs import ProjectLogger
-from core.utils import csv_read
+from pathlib import Path
 from PIL import Image
 
+
+from core.utils import csv_read, check_empty_images
+from core.logs import ProjectLogger
 logger = ProjectLogger(__name__)
 
 
 def setup_args(subparsers):
     """Argument paser for data_normalizer."""
-    subparser_data_downloader = subparsers.add_parser("data_normalizer")
+    subparsers.add_parser("data_normalizer")
     return None
 
 
@@ -65,11 +70,23 @@ def extract_image_stats(images_dir, images_files, round_decimals=None):
     return df
 
 
-def normalize(kwargs):
+def main(kwargs):
     df_train = csv_read(kwargs.get("train_csv"))
 
     image_files = df_train["ImageId"].to_list()
-    image_paths = [Path(kwargs.get("train_images"), img) for img in image_files]
+
+    empty_images = check_empty_images(kwargs['train_images'])
+
+    logger.i(f"Images in {kwargs['train_images']}: {len(image_files)}")
+    logger.i(f"Empty images in {kwargs['train_images']}: {len(empty_images)}")
+    logger.i(
+        f"Images to process from training data: {kwargs['train_images']}: "
+        f"{len(image_files) - len(empty_images)}")
+
+    image_files = [i for i in image_files if i not in empty_images]
+
+    image_paths = [Path(kwargs.get("train_images"), img)
+                   for img in image_files]
 
     num_channels = 3
 
@@ -84,16 +101,10 @@ def normalize(kwargs):
             variance += np.var(img_arr, axis=(0, 1))
             if i % 20 == 0:
                 logger.i(
-                    f"Processing image {image_file} {i} / {len(df_train)}")
+                    f"Processing image {image_file} {i} / {len(image_paths)}")
             count += 1
 
     final_mean = mean / count
     final_std = np.sqrt(variance / count)
     logger.i(f"Mean: {final_mean}")
     logger.i(f"Standard deviation: {final_std}")
-
-
-
-def main(kwargs):
-    normalize(kwargs)
-
