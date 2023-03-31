@@ -1,4 +1,5 @@
 """Utility functions for project."""
+import csv
 import gc
 import os
 import pandas as pd
@@ -104,3 +105,26 @@ def check_empty_images(images_dir: Union[str, Path]) -> List[str]:
             logger.d(f"Image {image_file} is empty")
             empty_images.append(image_file)
     return empty_images
+
+
+def write_dict_to_csv(data: dict, file_path: str) -> None:
+    """
+    Write a dictionary as a line in a CSV file.
+
+    Args:
+        data: A dictionary containing the data to write.
+        file_path: The path to the CSV file.
+
+    Returns:
+        None
+    """
+    file_exists = os.path.isfile(file_path)
+
+    with open(file_path, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=data.keys())
+
+        if not file_exists:
+            writer.writeheader()
+
+        logger.i(f"Writing {data} to {file_path}")
+        writer.writerow(data)

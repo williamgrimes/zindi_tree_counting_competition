@@ -28,6 +28,10 @@ def files_args(main_parser, args):
                              default=Path(args.data_dir, "SampleSubmission.csv"),
                              type=Path,
                              help="Path to sample submission csv.")
+    main_parser.add_argument("--runs_csv",
+                             default=Path(args.runs_dir, "runs.csv"),
+                             type=Path,
+                             help="Path to csv containing run_name and loss.")
     return main_parser
 
 
@@ -36,8 +40,8 @@ def parse_project_args():
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument("--params_file",
                                default="params.yaml",
-                               type=Path,
-                               help="Folder containing project data.")
+                               type=str,
+                               help="Folder containing run aprameters.")
     parent_parser.add_argument("--data_dir",
                                default="data",
                                type=str,

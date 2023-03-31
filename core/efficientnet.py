@@ -17,7 +17,8 @@ from efficientnet_pytorch import EfficientNet
 from sklearn.metrics import mean_squared_error
 
 from core.logs import ProjectLogger
-from core.utils import csv_read, set_seed, train_val_split, check_device, get_params, device_memory_usage, csv_write
+from core.utils import csv_read, train_val_split, check_device, get_params, get_device_mem_used, get_device_mem_total, \
+    csv_write, write_dict_to_csv
 
 logger = ProjectLogger(__name__)
 
@@ -262,3 +263,19 @@ def main(kwargs):
     if logger.log_file:
         logger.i(f"Log file found, copying to {logs_file_path}.")
         shutil.copy(logger.log_file, logs_file_path)
+
+    run_data = {"run": run_name,
+                "loss": loss,
+                "model_name": params["model_name"],
+                "learning_rate": params["learning_rate"],
+                "batch_size": params["batch_size"],
+                "image_size": params["transforms"]["resize"],
+                "image_rescaler": params["transforms"]["rescaler"],
+                "blur_kernel": params["transforms"]["blur_kernel"],
+                "blur_sigma": params["transforms"]["blur_sigma"],
+                "mem_usage": get_device_mem_used(device),
+                "elapsed_time": round(time.time() - start_time)
+                }
+
+    write_dict_to_csv(run_data, kwargs["runs_csv"])
+
