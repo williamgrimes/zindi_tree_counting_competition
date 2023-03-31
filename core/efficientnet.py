@@ -63,38 +63,36 @@ def rescaler(img):
     return Image.fromarray(img_warped)
 
 def transform_images(params):
+
     normalizer = transforms.Normalize(
         mean=params["normalize"]["rgb_means"],
         std=params["normalize"]["rgb_stds"],
     )
-    train_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Resize(
-                [
-                    params["transforms"]["height"],
-                    params["transforms"]["width"]]),
-            transforms.RandomApply(
-                [
-                    transforms.GaussianBlur(
-                        kernel_size=params["transforms"]["blur_kernel"])],
-                p=params["transforms"]["blur_probability"]),
-            transforms.RandomHorizontalFlip(
-                p=params["transforms"]["horizontal_flip_probability"]),
-            transforms.RandomVerticalFlip(
-                p=params["transforms"]["vertical_flip_probability"]),
-            normalizer,
-        ])
-    logger.i(f"{train_transform=}")
-    val_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Resize([params["transforms"]["height"], params["transforms"]["width"]]),
-            normalizer,
+    train_transform = [
+        transforms.ToTensor(),
+        transforms.Resize(params["transforms"]["resize"]),
+        transforms.GaussianBlur(
+                kernel_size=params["transforms"]["blur_kernel"],
+                sigma=params["transforms"]["blur_sigma"]
+            ),
+        transforms.RandomHorizontalFlip(
+            p=params["transforms"]["h_flip_probability"]),
+        transforms.RandomVerticalFlip(
+            p=params["transforms"]["v_flip_probability"]),
+        normalizer,
         ]
-    )
+    val_transform = [
+            transforms.ToTensor(),
+            transforms.Resize(params["transforms"]["resize"]),
+            normalizer,
+    ]
+    if params["transforms"]["rescaler"]:
+        logger.i("Rescaling images.")
+        train_transform.insert(0, rescaler)
+        val_transform.insert(0, rescaler)
+    logger.i(f"{train_transform=}")
     logger.i(f"{val_transform=}")
-    return train_transform, val_transform
+    return transforms.Compose(train_transform), transforms.Compose(val_transform)
 
 
 class TreeImagesDataset(Dataset):
