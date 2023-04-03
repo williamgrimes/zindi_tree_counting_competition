@@ -164,7 +164,7 @@ def train_fn(loader, model, opt, loss_fn, device):
 
         loss = loss_fn(preds, y)
 
-        model.zero_grad()
+        opt.zero_grad()
         loss.backward()
         opt.step()
         if i in intervals:
