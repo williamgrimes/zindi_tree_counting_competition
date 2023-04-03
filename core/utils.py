@@ -92,7 +92,7 @@ def check_file_exists(file_path: str):
 def get_device_mem_used(device):
     if device.type == "cuda":
         result = subprocess.check_output(
-            ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits', '--format=csv', '--unit=M'],
+            ['nvidia-smi', '--query-gpu=memory.used', '--format=csv,nounits'],
             encoding='utf-8')
         mem_usage = result.strip().split('\n')[1:]
         mem_usage = sum([int(''.join(x for x in s if x.isdigit())) for s in mem_usage])
@@ -105,12 +105,11 @@ def get_device_mem_used(device):
 def get_device_mem_total(device):
     if device.type == "cuda":
         result = subprocess.check_output(
-            ['nvidia-smi', '--query-gpu=memory.total', '--format=csv,nounits', '--format=csv', '--unit=M'],
+            ['nvidia-smi', '--query-gpu=memory.total', '--format=csv,nounits'],
             encoding='utf-8')
         mem_total = result.strip().split('\n')[1:]
         mem_total = sum([int(''.join(x for x in s if x.isdigit())) for s in mem_total])
     else:
-        mem_total = psutil.virtual_memory()
         mem_total = psutil.virtual_memory().total / 1024 ** 2
     return int(mem_total)
 
