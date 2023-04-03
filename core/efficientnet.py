@@ -16,7 +16,6 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 
 from efficientnet_pytorch import EfficientNet
-from sklearn.metrics import mean_squared_error
 
 from core.logs import ProjectLogger
 from core.utils import csv_read, train_val_split, check_device, get_params, get_device_mem_used, get_device_mem_total, \
