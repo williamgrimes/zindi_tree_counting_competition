@@ -135,16 +135,18 @@ class Net(nn.Module):
         return self.relu(x)
 
 
-def check_acc(loader, model, device):
+def compute_loss(loader, model, device):
     loss = 0
+    criterion = nn.MSELoss()
     model.eval()
     with torch.no_grad():
         for X, y in loader:
             X = X.to(device).to(torch.float32)
-            y = y.to(torch.float).unsqueeze(1)
+            y = y.to(device).to(torch.float).unsqueeze(1)
 
+            model = model.to(device)
             preds = model(X)
-            loss += np.sqrt(mean_squared_error(preds.cpu(), y))
+            loss += torch.sqrt(criterion(preds, y)).item()
     model.train()
     return loss / len(loader)
 
@@ -182,8 +184,8 @@ def training_loop(dataloaders, device, params, model_file_path):
         logger.i(f"Epoch {epoch} / {params.get('max_epochs')}: val_loss: {loss}")
 
         train_fn(dataloaders["train"], model, opt, loss_fn, device)
-        train_loss = check_acc(dataloaders["train"], model, device)
-        val_loss = check_acc(dataloaders["val"], model, device)
+        train_loss = compute_loss(dataloaders["train"], model, device)
+        val_loss = compute_loss(dataloaders["val"], model, device)
 
         logger.i(f" --- train loss: {train_loss:.2f}")
         logger.i(f" --- val loss: {val_loss:.2f}")
