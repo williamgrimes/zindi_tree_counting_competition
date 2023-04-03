@@ -1,6 +1,6 @@
 """Argument paser for project"""
 import argparse
-from core import data_downloader, data_normalizer, efficientnet
+from core import data_downloader, data_normalizer, train
 
 from pathlib import Path
 
@@ -58,7 +58,7 @@ def parse_project_args():
     subparsers = parent_parser.add_subparsers(dest="command", required=True)
     data_downloader.setup_args(subparsers)
     data_normalizer.setup_args(subparsers)
-    efficientnet.setup_args(subparsers)
+    train.setup_args(subparsers)
 
     main_parser = argparse.ArgumentParser(parents=[parent_parser])
 

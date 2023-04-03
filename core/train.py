@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 from torch import nn, optim
-from torchvision import transforms
+from torchvision import models, transforms
 from torch.utils.data import Dataset, DataLoader
 
 from efficientnet_pytorch import EfficientNet
@@ -26,7 +26,11 @@ logger = ProjectLogger(__name__)
 
 def setup_args(subparsers):
     """Argument paser for efficientnet."""
-    subparser_data_downloader = subparsers.add_parser("efficientnet")
+    subparser_train = subparsers.add_parser("train")
+    subparser_train.add_argument(
+        "--net",
+        required=True,
+        help="Model architecture (Net) to train.")
     return None
 
 
@@ -121,10 +125,22 @@ class TreeImagesDataset(Dataset):
         return image
 
 
-class Net(nn.Module):
+class EfficientNetCounter(nn.Module):
     def __init__(self, params=None):
-        super(Net, self).__init__()
+        super(EfficientNetCounter, self).__init__()
         self.model = EfficientNet.from_pretrained(params.get("model_name"))
+        self.fc = nn.Linear(1000, 1)
+        self.relu = nn.ReLU()
+
+    def forward(self, image):
+        x = self.model(image)
+        x = self.fc(x)
+        return self.relu(x)
+
+class ResNetCounter(nn.Module):
+    def __init__(self, params=None):
+        super(ResNetCounter, self).__init__()
+        self.model = getattr(models, params.get("model_name"))(pretrained=True)
         self.fc = nn.Linear(1000, 1)
         self.relu = nn.ReLU()
 
@@ -174,7 +190,12 @@ def train_fn(loader, model, opt, loss_fn, device):
 
 def training_loop(dataloaders, device, params, model_file_path):
     loss_fn = nn.MSELoss().to(device)
-    model = Net(params).to(device)
+    if params.get("net") == "efficientnet":
+        model = EfficientNetCounter(params).to(device)
+    elif params.get("net") == "resnet":
+        model = ResNetCounter(params).to(device)
+    else:
+        logger.e(f"Unknown net param supplied: {params.get('net')}")
     opt = optim.Adam(model.parameters(), lr=params.get("learning_rate"))
     loss = 999999999
     es = 0
@@ -312,4 +333,3 @@ def main(kwargs):
                 }
 
     write_dict_to_csv(run_data, kwargs["runs_csv"])
-

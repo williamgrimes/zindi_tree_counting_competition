@@ -1,7 +1,7 @@
 """Zindi Africa palm tree counting competition."""
 import sys
 
-from core import argparser, data_downloader, data_normalizer, efficientnet
+from core import argparser, data_downloader, data_normalizer, train
 from core.logs import ProjectLogger
 from core.utils import set_seed
 
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     command_map = {
         "data_downloader": data_downloader.main,
         "data_normalizer": data_normalizer.main,
-        "efficientnet": efficientnet.main,
+        "train": train.main,
     }
 
     logger.setup_info(kwargs, exclude_list=["auth_token"])
