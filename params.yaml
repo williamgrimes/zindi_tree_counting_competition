@@ -1,5 +1,5 @@
 efficientnet:
-  model_name: "efficientnet-b3"
+  model_name: "efficientnet-b7"
   val_split: 0.15
   learning_rate: 0.001 # 1e-3 # 1e-4
   batch_size: 5
@@ -9,9 +9,9 @@ efficientnet:
     rgb_means: [0.41210787, 0.50030631, 0.34875169]
     rgb_stds: [0.15202952, 0.15280726, 0.1288698]
   transforms:
-    height: 1024
-    width: 1024
-    blur_kernel:  5
-    blur_probability: 0.3
-    horizontal_flip_probability: 0.5
-    vertical_flip_probability: 0.5
+    resize: 600  # heigt and width are the same
+    rescaler: true  # use the rescaler function to strech images
+    blur_kernel: [1, 9]
+    blur_sigma:  [0.1, 2]
+    h_flip_probability: 0.5  # horizontal flip
+    v_flip_probability: 0.5  # vertical flip
