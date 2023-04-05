@@ -73,8 +73,11 @@ def get_params(kwargs):
     """Load parameters from yaml file."""
     with open(kwargs.get("params_file")) as file:
         params = yaml.safe_load(file)
-        params = params.get(kwargs.get("command"))
-        logger.i(f"Loaded {kwargs.get('command')} params: {file.name}.")
+        params = {**params, **params['net'][kwargs.get('net')]}
+        params = {k: v for k, v in params.items() if k != "net"}
+        params = {**{"net": kwargs.get("net")}, **params}
+        logger.i(f"Loaded {kwargs.get('command')} params for {kwargs.get('net')} "
+                 f"from {file.name}.")
     log_dict(params)
     return params
 
