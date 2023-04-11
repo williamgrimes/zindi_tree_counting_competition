@@ -1,6 +1,7 @@
 """EfficientNet approach"""
 
 import cv2
+import math
 import os
 import shutil
 import time
@@ -84,6 +85,10 @@ def transform_images(params):
             p=params["transforms"]["h_flip_probability"]),
         transforms.RandomVerticalFlip(
             p=params["transforms"]["v_flip_probability"]),
+        transforms.ColorJitter(brightness=params["transforms"]["jitter_brightness"],
+                               contrast=params["transforms"]["jitter_contrast"],
+                               saturation=params["transforms"]["jitter_saturation"],
+                               hue=params["transforms"]["jitter_hue"]),
         normalizer,
         ]
     val_transform = [
@@ -132,8 +137,8 @@ class EfficientNetCounter(nn.Module):
         self.fc = nn.Linear(1000, 1)
         self.relu = nn.ReLU()
 
-    def forward(self, image):
-        x = self.model(image)
+    def forward(self, x):
+        x = self.model(x)
         x = self.fc(x)
         return self.relu(x)
 
@@ -141,18 +146,26 @@ class ResNetCounter(nn.Module):
     def __init__(self, params=None):
         super(ResNetCounter, self).__init__()
         self.model = getattr(models, params.get("model_name"))(pretrained=True)
-        self.fc = nn.Linear(1000, 1)
-        self.relu = nn.ReLU()
+        self.model = nn.Sequential(*list(self.model.children())[:-2])
 
-    def forward(self, image):
-        x = self.model(image)
-        x = self.fc(x)
-        return self.relu(x)
+        self.fc1 = nn.Linear(512*7*7, 256)
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.zeros_(self.fc1.bias)
+        self.fc2 = nn.Linear(256, 1)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.zeros_(self.fc2.bias)
 
+    def forward(self, batch):
+        x = self.model(batch)
+        x = nn.Flatten()(x)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = nn.functional.relu(x)
+        return x
 
-def compute_loss(loader, model, device):
+def compute_rmse_loss(loader, model, device):
     loss = 0
-    criterion = nn.MSELoss()
+    criterion = nn.MSELoss().to(device)
     model.eval()
     with torch.no_grad():
         for X, y in loader:
@@ -185,11 +198,12 @@ def train_fn(loader, model, opt, loss_fn, device):
         loss.backward()
         opt.step()
         if i in intervals:
-            logger.i(f" --- iter: {i} / {len(loader)}")
+            logger.i(f" --- iter: {i + 1} / {len(loader)}: RMSE {math.sqrt(loss):.4f}")
 
 
 def training_loop(dataloaders, device, params, model_file_path):
-    loss_fn = nn.MSELoss().to(device)
+    criterion = nn.MSELoss().to(device)
+
     if params.get("net") == "efficientnet":
         model = EfficientNetCounter(params).to(device)
     elif params.get("net") == "resnet":
@@ -201,13 +215,11 @@ def training_loop(dataloaders, device, params, model_file_path):
     es = 0
     for epoch in range(params.get("max_epochs")):
         logger.i(f"")
-        logger.i(f"Epoch {epoch} / {params.get('max_epochs')}: val_loss: {loss}")
+        logger.i(f"Epoch {epoch} / {params.get('max_epochs')}: val_loss: {loss:.4f}")
 
-        train_fn(dataloaders["train"], model, opt, loss_fn, device)
-        train_loss = compute_loss(dataloaders["train"], model, device)
-        val_loss = compute_loss(dataloaders["val"], model, device)
+        train_fn(dataloaders["train"], model, opt, criterion, device)
+        val_loss = compute_rmse_loss(dataloaders["val"], model, device)
 
-        logger.i(f" --- train loss: {train_loss:.2f}")
         logger.i(f" --- val loss: {val_loss:.2f}")
         logger.i(f" --- memory:  {get_device_mem_used(device)} / "
                  f"{get_device_mem_total(device)} Mb")
@@ -333,3 +345,4 @@ def main(kwargs):
                 }
 
     write_dict_to_csv(run_data, kwargs["runs_csv"])
+

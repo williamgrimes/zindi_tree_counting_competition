@@ -2,24 +2,29 @@ normalize:
   rgb_means: [0.41210787, 0.50030631, 0.34875169]
   rgb_stds: [0.15202952, 0.15280726, 0.1288698]
 transforms:
-  resize: 448  # heigt and width are the same
-  rescaler: true  # use the rescaler function to strech images
-  blur_kernel: [1, 5]
+  resize: 380  # heigt and width are the same
+  rescaler: false  # use the rescaler function to strech images
+
+  jitter_brightness: [0.5, 1.5]
+  jitter_contrast: 1
+  jitter_saturation: [0.5, 1.5]
+  jitter_hue: [-0.1, 0.1]
+  blur_kernel: [1, 7]
   blur_sigma:  [0.1, 2]
   h_flip_probability: 0.5  # horizontal flip
   v_flip_probability: 0.5  # vertical flip
 net:
   efficientnet:
-    model_name: "efficientnet-b5"
+    model_name: "efficientnet-b3"
     val_split: 0.15
-    learning_rate: 0.0001 # 1e-3 # 1e-4
-    batch_size: 15
-    max_epochs: 20
+    learning_rate: 0.0005 # 1e-3 # 1e-4
+    batch_size: 67
+    max_epochs: 50
     early_stopping_patience: 3
   resnet:
-    model_name: "resnet152"
+    model_name: "resnet34"
     val_split: 0.15
     learning_rate: 0.001 # 1e-3 # 1e-4
-    batch_size: 20
-    max_epochs: 20
-    early_stopping_patience: 3
+    batch_size: 80
+    max_epochs: 40
+    early_stopping_patience: 5
