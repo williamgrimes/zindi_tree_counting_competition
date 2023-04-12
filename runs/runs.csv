@@ -1,0 +1,7 @@
+run,loss,model_name,learning_rate,batch_size,image_size,image_rescaler,blur_kernel,blur_sigma,mem_usage,elapsed_time
+20230331_140249_efficientnet-b3,2.513471749011833,efficientnet-b3,0.001,5,1024,False,"[1, 9]","[0.1, 2]",20939,6099
+20230331_160035_efficientnet-b7,2.640660398335445,efficientnet-b7,0.001,5,600,True,"[1, 9]","[0.1, 2]",22193,8312
+20230403_101552_efficientnet-b5,2.756092071533203,efficientnet-b5,0.0001,15,456,True,"[1, 5]","[0.1, 2]",22636,6605
+20230403_154042_resnet152,3.4628835824819713,resnet152,0.001,20,448,True,"[1, 5]","[0.1, 2]",18095,5187
+20230405_115823_resnet18,9.4072,resnet18,0.001,200,224,False,"[1, 5]","[0.1, 2]",9440,2276
+20230405_150544_efficientnet-b4,3.3791623711586,efficientnet-b4,0.0005,67,380,False,"[1, 7]","[0.1, 2]",47341,6563
