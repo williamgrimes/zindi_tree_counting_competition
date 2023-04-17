@@ -1,23 +1,25 @@
-"""EfficientNet approach"""
+"""Palm tree counting training model and evaluate"""
 
+import PIL.Image
 import cv2
 import math
 import os
+import numpy as np
+import pandas as pd
 import shutil
 import time
-from pathlib import Path
-
 import torch
 
-import numpy as np
-from PIL import Image
 
+from efficientnet_pytorch import EfficientNet
+from pathlib import Path
+from PIL import Image
 from torch import nn, optim
 from torchvision import models, transforms
 from torch.utils.data import Dataset, DataLoader
+from typing import Callable, List, Tuple, Dict
 
-from efficientnet_pytorch import EfficientNet
-
+from core import argparser
 from core.logs import ProjectLogger
 from core.utils import csv_read, train_val_split, check_device, get_params, get_device_mem_used, get_device_mem_total, \
     csv_write, write_dict_to_csv
@@ -25,7 +27,7 @@ from core.utils import csv_read, train_val_split, check_device, get_params, get_
 logger = ProjectLogger(__name__)
 
 
-def setup_args(subparsers):
+def setup_args(subparsers: argparser) -> None:
     """Argument paser for efficientnet."""
     subparser_train = subparsers.add_parser("train")
     subparser_train.add_argument(
@@ -35,7 +37,16 @@ def setup_args(subparsers):
     return None
 
 
-def rescaler(img):
+def transform_rescale(img: PIL.Image.Image) -> PIL.Image.Image:
+    """
+    Rescale an image using perspective correction, strecth to cover maximum area.
+
+    Args:
+        img (PIL.Image.Image): Input image.
+
+    Returns:
+        PIL.Image.Image: Rescaled image.
+    """
 
     img = np.array(img)
 
@@ -68,7 +79,19 @@ def rescaler(img):
 
     return Image.fromarray(img_warped)
 
-def transform_images(params):
+
+def transform_images(params: Dict) -> Tuple[transforms.Compose, transforms.Compose]:
+    """
+    Transform images, creates data augmentation pipelines for training and
+    validation set. If rescale is true then  the image is rescaled using the
+    transform_rescale function.
+
+    Args:
+        params (Dict): Dictionary of parameters for preprocessing / training.
+
+    Returns:
+        train_transform, val_transform: Compose pipelines for training and val.
+    """
 
     normalizer = transforms.Normalize(
         mean=params["normalize"]["rgb_means"],
@@ -77,14 +100,10 @@ def transform_images(params):
     train_transform = [
         transforms.ToTensor(),
         transforms.Resize(params["transforms"]["resize"]),
-        transforms.GaussianBlur(
-                kernel_size=params["transforms"]["blur_kernel"],
-                sigma=params["transforms"]["blur_sigma"]
-            ),
-        transforms.RandomHorizontalFlip(
-            p=params["transforms"]["h_flip_probability"]),
-        transforms.RandomVerticalFlip(
-            p=params["transforms"]["v_flip_probability"]),
+        transforms.GaussianBlur(kernel_size=params["transforms"]["blur_kernel"],
+                                sigma=params["transforms"]["blur_sigma"]),
+        transforms.RandomHorizontalFlip(p=params["transforms"]["h_flip_probability"]),
+        transforms.RandomVerticalFlip(p=params["transforms"]["v_flip_probability"]),
         transforms.ColorJitter(brightness=params["transforms"]["jitter_brightness"],
                                contrast=params["transforms"]["jitter_contrast"],
                                saturation=params["transforms"]["jitter_saturation"],
@@ -98,32 +117,59 @@ def transform_images(params):
     ]
     if params["transforms"]["rescaler"]:
         logger.i("Rescaling images.")
-        train_transform.insert(0, rescaler)
-        val_transform.insert(0, rescaler)
+        train_transform.insert(0, transform_rescale)
+        val_transform.insert(0, transform_rescale)
     logger.i(f"{train_transform=}")
     logger.i(f"{val_transform=}")
     return transforms.Compose(train_transform), transforms.Compose(val_transform)
 
 
 class TreeImagesDataset(Dataset):
-    def __init__(self, df, root_dir, is_inference=False, transform=False):
+    """
+    A PyTorch Dataset for loading tree images and their corresponding labels.
+
+    Args:
+        df (pandas.DataFrame): DataFrame containing the image IDs and labels.
+        images_dir (str): Root directory path of the images.
+        is_inference (bool, optional): Whether the dataset is being used for inference or not. Default is False.
+        transform (bool, optional): Whether to apply data augmentation transforms to the images. Default is False.
+
+    Returns:
+        torch.Tensor or tuple: If `is_inference` is False, returns a tuple containing the transformed image and its label as a tensor.
+                               If `is_inference` is True, returns only the transformed image as a tensor.
+    """
+    def __init__(self, df: pd.DataFrame, images_dir: str, is_inference: bool = False, transform: bool = False):
         self.df = df
-        self.images_dir = root_dir
+        self.images_dir = images_dir
         self.transform = transform
         self.is_inference = is_inference
 
     def __len__(self):
+        """Returns the length of the dataset."""
         return len(self.df)
 
     def __getitem__(self, index):
+        """
+        Returns a transformed image and its label as a tensor, or only a
+        transformed image as a tensor.
+
+        Args:
+            index (int): Index of the item to be retrieved from the dataset.
+
+        Returns:
+            torch.Tensor or tuple:
+                If `is_inference` is False, returns a tuple containing the transformed image and its label as a tensor.
+                If `is_inference` is True, returns only the transformed image as a tensor.
+        """
 
         image_name = self.df['ImageId'][index]
-        image = Image.open(Path(self.images_dir, image_name)).convert('RGB')
+        images_path = Path(self.images_dir, image_name)
+        image = Image.open(images_path).convert('RGB')
 
         if self.transform:
             image = self.transform(image)
 
-        if not self.is_inference:
+        if self.is_inference is False:
             label = self.df['Target'][index]
             return image, torch.as_tensor(label)
 
@@ -131,6 +177,19 @@ class TreeImagesDataset(Dataset):
 
 
 class EfficientNetCounter(nn.Module):
+    """
+    A PyTorch module for counting objects using EfficientNet.
+
+    Args:
+        params (dict): A dictionary containing the configuration parameters for the model.
+            - model_name (str): The name of the EfficientNet model to use.
+
+    Attributes:
+        model (EfficientNet): The pre-trained EfficientNet model.
+        fc (nn.Linear): The fully-connected layer for counting objects.
+        relu (nn.ReLU): The activation function for the fully-connected layer.
+
+    """
     def __init__(self, params=None):
         super(EfficientNetCounter, self).__init__()
         self.model = EfficientNet.from_pretrained(params.get("model_name"))
@@ -143,6 +202,19 @@ class EfficientNetCounter(nn.Module):
         return self.relu(x)
 
 class ResNetCounter(nn.Module):
+    """
+    A PyTorch module for counting objects using ResNet.
+
+    Args:
+        params (dict): A dictionary containing the configuration parameters for the model.
+            - model_name (str): The name of the ResNet model to use.
+
+    Attributes:
+        model (nn.Sequential): The pre-trained ResNet model, with its final layers removed.
+        fc1 (nn.Linear): The first fully-connected layer for counting objects.
+        fc2 (nn.Linear): The second fully-connected layer for counting objects.
+
+    """
     def __init__(self, params=None):
         super(ResNetCounter, self).__init__()
         self.model = getattr(models, params.get("model_name"))(pretrained=True)
@@ -163,11 +235,24 @@ class ResNetCounter(nn.Module):
         x = nn.functional.relu(x)
         return x
 
+
 def compute_rmse_loss(loader, model, device):
+    """
+    Computes the Root Mean Squared Error (RMSE) loss between the model's
+    predictions and the true labels over a given data loader.
+
+    Args:
+        loader: A PyTorch data loader containing a dataset of images and labels.
+        model: A PyTorch model used for making predictions on the images.
+        device: The device (CPU or GPU) used for training the model.
+
+    Returns:
+        The average RMSE loss over all predictions and true labels in the loader.
+    """
     loss = 0
     criterion = nn.MSELoss().to(device)
-    model.eval()
-    with torch.no_grad():
+    model.eval()  # Set model to evaluation mode, disables gradients
+    with torch.no_grad():  # no_grad context disables gradient computation and reduce memory usage.
         for X, y in loader:
             X = X.to(device).to(torch.float32)
             y = y.to(device).to(torch.float).unsqueeze(1)
@@ -175,33 +260,81 @@ def compute_rmse_loss(loader, model, device):
             model = model.to(device)
             preds = model(X)
             loss += torch.sqrt(criterion(preds, y)).item()
-    model.train()
+    model.train()  # Set model back to train mode
     return loss / len(loader)
 
 
 def load_checkpoint(checkpoint, model):
-    logger.i(f'Loading checkpoint')
-    model.load_state_dict(checkpoint['state_dict'])
+    """Loads a model's state dictionary from a checkpoint.
+
+    Args:
+        checkpoint: A dictionary containing a model's state dictionary.
+        model: A PyTorch model to load the checkpoint into.
+
+    Returns:
+        None
+
+    Raises:
+        KeyError: If the state dictionary key 'state_dict' is not found in the checkpoint.
+    """
+    try:
+        model.load_state_dict(checkpoint['state_dict'])
+        logger.i(f"Checkpoint loaded successfully")
+    except KeyError:
+        logger.e(f"Checkpoint does not contain state_dict key")
+        raise
 
 
-def train_fn(loader, model, opt, loss_fn, device):
-    intervals = np.linspace(0, len(loader), num=11).astype(int)
-    for i, (X, y) in enumerate(loader):
+def train_epoch(data_loader: torch.utils.data.DataLoader, model: torch.nn.module,
+                opt: torch.optim.Optimizer, criterion: Callable, device: torch.device):
+    """
+    Train the given PyTorch model for one epoch using the provided data loader,
+    optimization algorithm, and loss function.
+
+    Parameters:
+        data_loader (torch.utils.data.DataLoader): A PyTorch DataLoader object containing the training data.
+        model (torch.nn.Module): The PyTorch model to train.
+        opt (torch.optim.Optimizer): The PyTorch optimization algorithm to use for training.
+        criterion (callable): The loss function to use for training, which should take in the model predictions and ground truth labels as inputs.
+        device (torch.device): The device (CPU or GPU) to use for training.
+
+    Returns:
+        None
+    """
+    intervals = np.linspace(0, len(data_loader), num=11).astype(int)
+    for i, (X, y) in enumerate(data_loader):
         X = X.to(device).to(torch.float32)
         y = y.to(torch.float).unsqueeze(1).to(device)
 
         preds = model(X).to(torch.float)
 
-        loss = loss_fn(preds, y)
+        loss = criterion(preds, y)
 
         opt.zero_grad()
         loss.backward()
         opt.step()
         if i in intervals:
-            logger.i(f" --- iter: {i + 1} / {len(loader)}: RMSE {math.sqrt(loss):.4f}")
+            logger.i(f" --- batch: {i + 1} / {len(data_loader)}: RMSE {math.sqrt(loss):.4f}")
 
 
-def training_loop(dataloaders, device, params, model_file_path):
+def training_loop(dataloaders: Dict[str: torch.utils.data.DataLoader],
+                  device: torch.device, params: Dict, model_file_path: Path)\
+        -> Tuple[torch.nn.Module, float]:
+    """
+    Train a PyTorch model using the provided training, validation and test dataloaders.
+
+    Args:
+        dataloaders: A dictionary containing PyTorch DataLoader objects for training, validation and test sets.
+        device: A torch.device object specifying the device to use for training.
+        params: A dictionary containing hyperparameters for training the model.
+        model_file_path: A Path object specifying the path to save the trained model.
+
+    Returns:
+        A tuple containing the trained PyTorch model and the final validation loss.
+
+    Raises:
+        None.
+    """
     criterion = nn.MSELoss().to(device)
 
     if params.get("net") == "efficientnet":
@@ -217,7 +350,7 @@ def training_loop(dataloaders, device, params, model_file_path):
         logger.i(f"")
         logger.i(f"Epoch {epoch} / {params.get('max_epochs')}: val_loss: {loss:.4f}")
 
-        train_fn(dataloaders["train"], model, opt, criterion, device)
+        train_epoch(dataloaders["train"], model, opt, criterion, device)
         val_loss = compute_rmse_loss(dataloaders["val"], model, device)
 
         logger.i(f" --- val loss: {val_loss:.2f}")
@@ -243,7 +376,21 @@ def training_loop(dataloaders, device, params, model_file_path):
     return model, loss
 
 
-def inference(dataloaders, model, df_test, device):
+def inference(dataloaders: Dict[str: torch.utils.data.DataLoader],
+              model: torch.nn.Module, df_test: pd.DataFrame,
+              device: torch.device) -> pd.DataFrame:
+    """
+    Runs inference on a test set and returns predictions in a pandas DataFrame.
+
+    Args:
+        dataloaders: A dictionary containing PyTorch data loaders for train, validation, and test sets.
+        model: A PyTorch model for making predictions.
+        df_test: A pandas DataFrame containing the test set.
+        device: A string specifying the device to run the model on ('cpu' or 'cuda').
+
+    Returns:
+        A pandas DataFrame with predictions for the test set.
+    """
     loader = dataloaders["test"]
     intervals = np.linspace(0, len(loader), num=11).astype(int)
     model.eval()
@@ -264,8 +411,6 @@ def main(kwargs):
     start_time = time.time()
     params = get_params(kwargs)
     device = check_device()
-
-    #empty_images = check_empty_images(kwargs["train_images"])
 
     run_name = f"{logger.now}_{params['model_name']}"
     run_dir = Path(kwargs["runs_dir"], f"{run_name}")
@@ -345,4 +490,3 @@ def main(kwargs):
                 }
 
     write_dict_to_csv(run_data, kwargs["runs_csv"])
-
